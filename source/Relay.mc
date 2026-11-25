@@ -201,6 +201,7 @@ class RelayClient {
         lastMs = System.getTimer() - _sentAt;
         if (f.size() > 1 && f[1].equals("ok")) {
             lastResult = "done";
+            if (!paired()) { Application.Storage.setValue("paired", true); }
             if (f.size() > 4) {
                 slide = f[2];
                 volume = f[3];
@@ -240,13 +241,24 @@ class RelayClient {
     // ---------- feedback ----------
 
     function statusText() as String {
-        if (lastResult.equals("")) { return "press a button"; }
+        if (lastResult.equals("")) { return "ready"; }
         if (lastResult.equals("sending")) { return "sending..."; }
         if (lastResult.equals("waiting")) { return "waiting for PC..."; }
         if (lastResult.equals("done")) { return "done " + (lastMs / 1000.0f).format("%.1f") + "s"; }
         if (lastResult.equals("pcerr")) { return "PC: " + lastError; }
-        if (lastResult.equals("noanswer")) { return "PC no answer"; }
+        if (lastResult.equals("noanswer")) { return "PC not answering"; }
         return lastResult;
+    }
+
+    // 1 = done, 2 = failed, 0 = idle or in progress (for the status icon).
+    function statusKind() as Number {
+        if (lastResult.equals("") || lastResult.equals("sending") || lastResult.equals("waiting")) { return 0; }
+        return lastResult.equals("done") ? 1 : 2;
+    }
+
+    // True once any command has been confirmed by the PC.
+    function paired() as Boolean {
+        return Application.Storage.getValue("paired") == true;
     }
 
     function volumeText() as String {

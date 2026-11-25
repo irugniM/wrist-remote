@@ -1,67 +1,57 @@
 import Toybox.Lang;
 import Toybox.Graphics;
 import Toybox.WatchUi;
-import Toybox.Timer;
 
 // Slides remote: UP previous, DOWN next, START black screen,
 // hold UP (menu) cycles wrist-flick gestures: off, normal, light, firm.
 class SlidesView extends WatchUi.View {
 
     var flick as FlickDetector;
-    hidden var _refresh as Timer.Timer;
 
     function initialize() {
         View.initialize();
         flick = new FlickDetector(method(:onFlick));
-        _refresh = new Timer.Timer();
     }
 
     function onLayout(dc as Graphics.Dc) as Void {
         Ui.init();
     }
 
-    function onShow() as Void {
-        // Redraw twice a second while gestures are on so the movement readout updates.
-        _refresh.start(method(:redraw), 500, true);
-    }
-
     function onHide() as Void {
-        _refresh.stop();
         flick.off();
-    }
-
-    function redraw() as Void {
-        if (flick.enabled()) { WatchUi.requestUpdate(); }
     }
 
     function onFlick() as Void {
         Relay.get().send("next");
     }
 
+    // Layout, top to bottom: title, START hint in the subscreen, the slide
+    // number (or the last page turn) big, whether the PC did it, the page
+    // buttons, and the flick setting.
     function onUpdate(dc as Graphics.Dc) as Void {
         Ui.clear(dc);
         var r = Relay.get();
         Ui.pill(dc, 0.17, Graphics.FONT_XTINY, "SLIDES");
-        // Big line: slide position once the PC reports it, else the last command.
+        var hasSub = Ui.startLabel(dc, "black");
+
         var big = r.slide.equals("") ? label(r.lastCommand) : r.slide;
-        Ui.text(dc, 0.40, Graphics.FONT_MEDIUM, big);
-        Ui.text(dc, 0.55, Graphics.FONT_XTINY, r.statusText());
-        if (!flick.enabled()) {
-            Ui.text(dc, 0.66, Graphics.FONT_XTINY, "flick: off");
-        } else if (!flick.hasAccel) {
-            Ui.text(dc, 0.66, Graphics.FONT_XTINY, "flick: no sensor");
-        } else {
-            Ui.text(dc, 0.66, Graphics.FONT_XTINY, "flick " + flick.levelName() + " " + flick.lastPeak + "mg");
-        }
-        Ui.text(dc, 0.78, Graphics.FONT_XTINY, "UP prev  DOWN next");
-        Ui.text(dc, 0.88, Graphics.FONT_XTINY, "START black");
+        Ui.text(dc, 0.48, Graphics.FONT_LARGE, big);
+        Ui.status(dc, 0.63, r.statusText(), r.statusKind());
+        Ui.upDown(dc, 0.75, "back", "next");
+        if (!hasSub) { Ui.text(dc, 0.94, Graphics.FONT_XTINY, "START black"); }
+
+        var f;
+        if (!flick.enabled()) { f = "hold UP: flicks"; }
+        else if (!flick.hasAccel) { f = "no motion sensor"; }
+        else { f = "flicks: " + flick.levelName(); }
+        Ui.text(dc, 0.86, Graphics.FONT_XTINY, f);
     }
 
     static function label(cmd as String) as String {
-        if (cmd.equals("next")) { return "NEXT"; }
-        if (cmd.equals("prev")) { return "PREV"; }
-        if (cmd.equals("black")) { return "BLACK"; }
-        return "ready";
+        if (cmd.equals("next")) { return "Next"; }
+        if (cmd.equals("prev")) { return "Back"; }
+        if (cmd.equals("black")) { return "Black"; }
+        return "Ready";
     }
 }
 class SlidesDelegate extends WatchUi.BehaviorDelegate {

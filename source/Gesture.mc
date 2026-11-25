@@ -23,7 +23,7 @@ class FlickDetector {
     const RATE_HZ = 25;
 
     var level as Number = 0;
-    var lastPeak as Number = 0;          // strongest movement in the last batch, shown on screen
+    var lastPeak as Number = 0;          // strongest movement in the last batch (mg)
     var hasAccel as Boolean = true;
 
     hidden var _onFlick as Method() as Void;
