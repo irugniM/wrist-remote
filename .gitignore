@@ -14,3 +14,6 @@ external-mir/
 
 # Superseded PowerShell agent (no command confirmation)
 pc/
+
+# Local preview of the store images
+store-preview.png
