@@ -3,6 +3,8 @@
 // Every part is best-effort: if something can't be read it is left empty.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Windows.Media.Control;
@@ -11,23 +13,130 @@ namespace WristRemote
 {
     static class PcStatus
     {
-        // "5/20" while a PowerPoint slide show is running, else "".
+        // "5/20" while a PowerPoint slide show is running, or while PowerPoint
+        // is the front window in normal view; else "".
+        //
+        // PowerPoint can run as more than one process (a file opened in
+        // Protected View starts its own), and only one of them is reachable
+        // with GetActiveObject. So each PowerPoint document or slide show
+        // window is also asked for its own Application object.
         public static string Slide()
+        {
+            var apps = PowerPointApps();
+            foreach (var app in apps)
+            {
+                var s = ShowPosition(app);
+                if (s != "") return s;
+            }
+            if (!PowerPointInFront()) return "";
+            foreach (dynamic app in apps)
+            {
+                try
+                {
+                    if (app.Windows.Count < 1) continue;
+                    dynamic w = app.ActiveWindow;
+                    int index = w.View.Slide.SlideIndex;
+                    int count = w.Presentation.Slides.Count;
+                    return index + "/" + count;
+                }
+                catch (Exception) { }
+            }
+            return "";
+        }
+
+        static string ShowPosition(dynamic app)
         {
             try
             {
-                dynamic app = Marshal.GetActiveObject("PowerPoint.Application");
-                if (app.SlideShowWindows.Count < 1) return "";
-                dynamic win = app.SlideShowWindows[1];
-                int pos = win.View.CurrentShowPosition;
-                int total = win.Presentation.Slides.Count;
-                return pos + "/" + total;
+                if (app.SlideShowWindows.Count >= 1)
+                {
+                    dynamic win = app.SlideShowWindows[1];
+                    int pos = win.View.CurrentShowPosition;
+                    int total = win.Presentation.Slides.Count;
+                    return pos + "/" + total;
+                }
             }
-            catch (Exception)
+            catch (Exception) { }
+            try
             {
-                return "";
+                // A show started from Protected View.
+                int n = app.ProtectedViewWindows.Count;
+                for (int i = 1; i <= n; i++)
+                {
+                    try
+                    {
+                        dynamic pres = app.ProtectedViewWindows[i].Presentation;
+                        dynamic sw = pres.SlideShowWindow;
+                        int pos = sw.View.CurrentShowPosition;
+                        int total = pres.Slides.Count;
+                        return pos + "/" + total;
+                    }
+                    catch (Exception) { }
+                }
             }
+            catch (Exception) { }
+            return "";
         }
+
+        static List<object> PowerPointApps()
+        {
+            var apps = new List<object>();
+            try { apps.Add(Marshal.GetActiveObject("PowerPoint.Application")); } catch (Exception) { }
+            var pids = new HashSet<uint>(System.Diagnostics.Process.GetProcessesByName("POWERPNT").Select(p => (uint)p.Id));
+            if (pids.Count == 0) return apps;
+            var seen = new HashSet<uint>();
+            EnumWindows((top, l) =>
+            {
+                uint pid;
+                GetWindowThreadProcessId(top, out pid);
+                if (!pids.Contains(pid) || seen.Contains(pid)) return true;
+                EnumChildWindows(top, (child, l2) =>
+                {
+                    var cls = ClassName(child);
+                    if (cls != "mdiClass" && cls != "paneClassDC" && cls != "screenClass") return true;
+                    var iid = new Guid("00020400-0000-0000-C000-000000000046");   // IDispatch
+                    object o;
+                    if (AccessibleObjectFromWindow(child, 0xFFFFFFF0 /* OBJID_NATIVEOM */, ref iid, out o) != 0 || o == null) return true;
+                    try
+                    {
+                        dynamic d = o;
+                        apps.Add((object)d.Application);
+                        seen.Add(pid);
+                        return false;
+                    }
+                    catch (Exception) { return true; }
+                }, IntPtr.Zero);
+                return true;
+            }, IntPtr.Zero);
+            return apps;
+        }
+
+        static string ClassName(IntPtr h)
+        {
+            var sb = new System.Text.StringBuilder(128);
+            GetClassName(h, sb, sb.Capacity);
+            return sb.ToString();
+        }
+
+        static bool PowerPointInFront()
+        {
+            try
+            {
+                uint pid;
+                GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+                return System.Diagnostics.Process.GetProcessById((int)pid).ProcessName
+                    .Equals("POWERPNT", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception) { return false; }
+        }
+
+        delegate bool EnumProc(IntPtr h, IntPtr l);
+        [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+        [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumProc f, IntPtr l);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+        [DllImport("oleacc.dll")] static extern int AccessibleObjectFromWindow(IntPtr h, uint id, ref Guid iid, [MarshalAs(UnmanagedType.IDispatch)] out object o);
+        [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
 
         // "40" (percent), "m40" when muted, or "" if it can't be read.
         public static string Volume()
