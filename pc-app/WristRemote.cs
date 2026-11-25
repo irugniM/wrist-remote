@@ -27,7 +27,7 @@ using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Wrist Remote")]
 [assembly: System.Reflection.AssemblyProduct("Wrist Remote")]
-[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.2.0.0")]
 
 namespace WristRemote
 {
@@ -380,13 +380,49 @@ namespace WristRemote
             string error = null;
             if (Array.IndexOf(Meeting.Actions, cmd) >= 0)
             {
-                var shortcut = Meeting.ShortcutFor(cmd);
-                var keys = shortcut.Length > 0 ? Meeting.Parse(shortcut) : null;
-                what = Meeting.PresetNames[Meeting.Preset].Replace(" (edit file)", "") + " " + cmd
-                    + (shortcut.Length > 0 ? " (" + shortcut + ")" : "");
-                if (shortcut.Length == 0) error = "no shortcut";
-                else if (keys == null) error = "bad shortcut";
-                else act = () => Meeting.Press(keys);
+                var preset = Meeting.Preset;
+                var win = IntPtr.Zero;
+                if (preset == "auto")
+                {
+                    string kind;
+                    win = Meeting.Find(out kind);
+                    preset = kind;
+                }
+                if (preset == null)
+                {
+                    what = "meeting " + cmd;
+                    error = "no meeting";
+                }
+                else
+                {
+                    var shortcut = Meeting.ShortcutFor(cmd, preset);
+                    var keys = shortcut.Length > 0 ? Meeting.Parse(shortcut) : null;
+                    what = Meeting.PresetNames[preset].Replace(" (edit file)", "") + " " + cmd
+                        + (shortcut.Length > 0 ? " (" + shortcut + ")" : "");
+                    if (shortcut.Length == 0) error = "no shortcut";
+                    else if (keys == null) error = "bad shortcut";
+                    else
+                    {
+                        var w = win;
+                        var zoomLeave = preset == "zoom" && cmd == "leave";
+                        act = () =>
+                        {
+                            bool clicked = false;
+                            Action then = null;
+                            if (zoomLeave) then = () => clicked = Meeting.ClickZoomLeave();
+                            if (w != IntPtr.Zero)
+                            {
+                                if (!Meeting.PressIn(w, keys, then)) { _actError = "not in front"; return; }
+                            }
+                            else
+                            {
+                                Meeting.Press(keys);
+                                if (then != null) then();
+                            }
+                            if (zoomLeave && !clicked) _actError = "confirm in Zoom";
+                        };
+                    }
+                }
             }
             else
             {
@@ -428,9 +464,18 @@ namespace WristRemote
                 t.Start();
                 return;
             }
+            _actError = null;
             if (!dry && act != null) act();
+            if (_actError != null)
+            {
+                Log(cmd + ": " + _actError);
+                Ack(id, "err|" + _actError, false);
+                return;
+            }
             Ack(id, "ok", cmd != "lock");
         }
+
+        string _actError;                      // set by an action that could not finish
 
         static readonly HttpClient AckClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
 
