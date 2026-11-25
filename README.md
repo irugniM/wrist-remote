@@ -16,9 +16,9 @@ Connect IQ watch apps can only be a Bluetooth LE central. The laptop this was bu
 
 | Menu | What it does |
 |---|---|
-| Slides | UP previous, DOWN next, START black screen. Hold UP turns wrist-flick gestures on or off. Shows the PowerPoint slide position (for example `5/20`) once the PC reports it. |
+| Slides | UP previous, DOWN next, START black screen. Hold UP cycles wrist-flick gestures (off, normal, light, firm). Shows the PowerPoint slide position (for example `5/20`) once the PC reports it. |
 | Media | Play/pause, next/previous track, volume up/down, mute. Play/pause shows what is playing; the volume buttons show the volume. Stays open so you can press again. |
-| Meeting | Mic on/off, camera on/off, raise hand, leave meeting (asks first). Shortcuts come from the meeting app chosen on the PC. |
+| Meeting | Mic on/off, camera on/off, raise hand, leave meeting (asks first). The PC finds the meeting window (Teams, Zoom or Google Meet) and uses its shortcuts. |
 | Lock PC | Locks the PC (Win+L). |
 | Sleep PC | Asks first, then puts the PC to sleep. |
 | Pair | Shows the pairing code; START sends a test. |
@@ -38,7 +38,9 @@ Polling is limited to three requests per command to stay within ntfy.sh's free r
 
 ### Gestures
 
-In Slides, hold UP to turn flicks on. A quick wrist flick along the face's left-right axis (over 1.5 g) turns the page; one direction is next, the other previous, with a 0.9 s cooldown. The screen shows the latest peak in mg to help you find the right force.
+In Slides, hold UP to cycle flick sensitivity: off, normal (1.3 g), light (0.9 g), firm (1.8 g). Any quick wrist flick goes to the next slide; UP still goes back. A flick swings out and back, so its direction can't be read reliably, which is why flicks only go forward.
+
+The accelerometer is read at 25 Hz and gravity is subtracted, so it works however the wrist is held. Samples arrive in one-second batches, so a flick is acted on up to a second later, with a 1.2 s cooldown. The screen shows the strongest movement of the last second in mg to help you pick a level.
 
 ## PC app
 
@@ -48,7 +50,7 @@ In Slides, hold UP to turn flicks on. A quick wrist flick along the face's left-
 2. The first time, it asks for the pairing code shown on the watch under Pair (spaces don't matter). The code is saved in `%APPDATA%\WristRemote\topic.txt`.
 3. On the watch, open Pair and press START: the log shows `test from watch: paired and working`.
 
-Tray menu (left or right click): connection status and code, last command, Change pairing code, Log only (don't press keys), Start with Windows, Meeting app (Microsoft Teams / Zoom / Google Meet / Custom, with Edit custom shortcuts), Open log, Exit. Only one copy runs at a time.
+Tray menu (left or right click): connection status and code, last command, Change pairing code, Log only (don't press keys), Start with Windows, Meeting app (Auto / Microsoft Teams / Zoom / Google Meet / Custom, with Edit custom shortcuts), Open log, Exit. Only one copy runs at a time.
 
 | Command | What the PC does |
 |---|---|
@@ -56,7 +58,7 @@ Tray menu (left or right click): connection status and code, last command, Chang
 | black | B key (PowerPoint black screen) |
 | playpause / nexttrack / prevtrack | Media control via `WM_APPCOMMAND` (not affected by keyboard remapping) |
 | volup / voldown / mute | System volume via `WM_APPCOMMAND` |
-| mic / camera / hand / leave | Meeting shortcut (to the foreground window) |
+| mic / camera / hand / leave | Meeting shortcut, sent to the meeting window |
 | lock | `LockWorkStation` |
 | sleep | Answers first, then suspends |
 | ping | Logged only |
@@ -70,13 +72,15 @@ Anything else is logged and answered with `err|unknown`; nothing outside this li
 | mic | Ctrl+Shift+M | Alt+A | Ctrl+D |
 | camera | Ctrl+Shift+O | Alt+V | Ctrl+E |
 | hand | Ctrl+Shift+K | Alt+Y | Ctrl+Alt+H |
-| leave | Ctrl+Shift+H | Alt+Q | none (answers `no shortcut`) |
+| leave | Ctrl+Shift+H | Alt+Q | Ctrl+W (closes the Meet tab) |
 
-The meeting window must be in front. Zoom's Alt+Q opens a confirmation that still needs Enter. Custom shortcuts live in `%APPDATA%\WristRemote\meeting-custom.txt`, one per line, for example `mic = ctrl+shift+m`.
+With Meeting app set to Auto (the default), the PC app looks for the meeting window itself: Teams, a Zoom meeting window (found by window class, since Zoom Workplace titles every window the same), or a browser window whose current tab is Google Meet. It brings that window to the front, presses the shortcut, then gives focus back to the window you were using, so you can mute while presenting. If no meeting window is open the watch shows `PC: no meeting`. Choosing a specific app instead sends its shortcuts to whatever window is in front.
+
+Zoom's Alt+Q opens a confirmation; the PC app then clicks its "Leave meeting" button through UI Automation (never "End meeting for all"). If that button doesn't appear the dialog is left open and the watch shows `PC: confirm in Zoom`. Custom shortcuts live in `%APPDATA%\WristRemote\meeting-custom.txt`, one per line, for example `mic = ctrl+shift+m`.
 
 ### Status sent back
 
-- Slide position: read from PowerPoint over COM while a slide show is running
+- Slide position: read from PowerPoint over COM while a slide show is running, or while PowerPoint is the front window in normal view
 - Volume: Windows Core Audio (`IAudioEndpointVolume`)
 - Now playing: Windows media session API (`GlobalSystemMediaTransportControlsSessionManager`), so it works with Spotify, browsers and other apps that report to Windows
 
@@ -103,8 +107,9 @@ PC app: run `pc-app\build.cmd`. It uses the C# compiler that ships with Windows 
 ## Tested / not tested
 
 - Tested in the Connect IQ simulator with the PC app in log-only mode: pairing, slides, media (with volume and now-playing display), meeting mic, leave confirmation, lock, and "PC no answer" with the PC app closed. PC app alone: unknown commands answered with `err|unknown`; real volume and media session read correctly.
-- On the real watch (1.0): pairing, slides and media work.
-- Not yet tested: confirmation timing on the real watch, meeting shortcuts in real Teams/Zoom, real lock, PowerPoint slide position, gestures (the simulator has no real accelerometer).
+- On the real watch: pairing, slides, media and lock work (1.1). 1.1 sent Teams shortcuts by default, which were wrong in Zoom; 1.2 finds the meeting app instead.
+- 1.2 on the real watch: Zoom and Microsoft Teams mic, camera, hand and leave (Zoom leave clicks through its confirmation); PowerPoint slide position, including a file opened in Protected View.
+- Not yet tested: Google Meet calls, the 1.2 gesture detector on the real watch.
 
 ## License
 

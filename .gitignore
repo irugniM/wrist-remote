@@ -4,6 +4,9 @@ bin/
 *.iq
 *.debug.xml
 pc-app/*.exe
+gen/
+internal-mir/
+external-mir/
 
 # Signing keys: never commit
 *.der
