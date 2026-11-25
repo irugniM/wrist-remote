@@ -110,10 +110,116 @@ $g.DrawImage($pc, $xs[2] + 5, 530 - $ph/2, $pw, $ph)
 $pc.Dispose()
 $b.Save((Join-Path $shots '01-setup.png')); $g.Dispose(); $b.Dispose()
 
+# ---------- app mark: Instinct-shaped face with remote arrows ----------
+# Drawn at any size; $aa $false keeps to flat colours (for the 64-colour icon).
+function Draw-Mark($g, $x, $y, $s, $bgCol, $faceCol, $ringCol, $fgCol) {
+    # $s = width of the square the mark fills. Main face is 70% of it,
+    # the subscreen circle sits at its top right like on the Instinct.
+    $d = $s * 0.66; $cx = $x + $s * 0.46; $cy = $y + $s * 0.54
+    $sd = $d * 62 / 176; $sx = $cx - $d/2 + $d * 113 / 176; $sy = $cy - $d/2
+    $ring = $s * 0.045
+    $br = New-Object System.Drawing.SolidBrush $ringCol
+    $g.FillEllipse($br, $cx - $d/2 - $ring, $cy - $d/2 - $ring, $d + 2*$ring, $d + 2*$ring)
+    $g.FillEllipse($br, $sx - $ring, $sy - $ring, $sd + 2*$ring, $sd + 2*$ring)
+    $fb = New-Object System.Drawing.SolidBrush $faceCol
+    $g.FillEllipse($fb, $cx - $d/2, $cy - $d/2, $d, $d)
+    $g.FillEllipse((New-Object System.Drawing.SolidBrush $fgCol), $sx, $sy, $sd, $sd)
+    # Subscreen: a small "signal" dot.
+    $dot = $sd * 0.3
+    $g.FillEllipse((New-Object System.Drawing.SolidBrush $bgCol), $sx + $sd/2 - $dot/2, $sy + $sd/2 - $dot/2, $dot, $dot)
+    # Remote arrows: back and next.
+    $a = $d * 0.17; $gap = $d * 0.06; $ay = $cy + $d * 0.04
+    $fg = New-Object System.Drawing.SolidBrush $fgCol
+    $g.FillPolygon($fg, [System.Drawing.PointF[]]@(
+        (New-Object System.Drawing.PointF ($cx - $gap - 1.6*$a), $ay),
+        (New-Object System.Drawing.PointF ($cx - $gap), ($ay - $a)),
+        (New-Object System.Drawing.PointF ($cx - $gap), ($ay + $a))))
+    $g.FillPolygon($fg, [System.Drawing.PointF[]]@(
+        (New-Object System.Drawing.PointF ($cx + $gap + 1.6*$a), $ay),
+        (New-Object System.Drawing.PointF ($cx + $gap), ($ay - $a)),
+        (New-Object System.Drawing.PointF ($cx + $gap), ($ay + $a))))
+}
+
+# Writes a 24-bit bitmap as an 8-bit indexed PNG using the 64-colour
+# palette (channels 00, 55, AA, FF); each pixel takes the nearest colour.
+function Save-Indexed64($src, $path) {
+    $w = $src.Width; $h = $src.Height
+    $dst = New-Object System.Drawing.Bitmap $w, $h, ([System.Drawing.Imaging.PixelFormat]::Format8bppIndexed)
+    $pal = $dst.Palette
+    $lv = @(0, 85, 170, 255)
+    for ($i = 0; $i -lt 256; $i++) {
+        if ($i -lt 64) { $pal.Entries[$i] = [System.Drawing.Color]::FromArgb(255, $lv[[int][math]::Floor($i / 16)], $lv[[int][math]::Floor($i / 4) % 4], $lv[$i % 4]) }
+        else { $pal.Entries[$i] = [System.Drawing.Color]::Black }
+    }
+    $dst.Palette = $pal
+    $rect = New-Object System.Drawing.Rectangle 0, 0, $w, $h
+    $data = $dst.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::WriteOnly, $dst.PixelFormat)
+    $bytes = New-Object byte[] ($data.Stride * $h)
+    for ($y = 0; $y -lt $h; $y++) {
+        for ($x = 0; $x -lt $w; $x++) {
+            $c = $src.GetPixel($x, $y)
+            $q = { param($v) [int][math]::Round($v / 85.0) }
+            $bytes[$y * $data.Stride + $x] = [byte](16 * (& $q $c.R) + 4 * (& $q $c.G) + (& $q $c.B))
+        }
+    }
+    [System.Runtime.InteropServices.Marshal]::Copy($bytes, 0, $data.Scan0, $bytes.Length)
+    $dst.UnlockBits($data)
+    $dst.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+    $dst.Dispose()
+}
+
+# Device store icons, 128x128. Colours come from Garmin's 64-colour palette
+# (each channel 00, 55, AA or FF) so the 64-colour one stays exact.
+$pOrange = [System.Drawing.Color]::FromArgb(255, 255, 85, 0)
+$pBlack  = [System.Drawing.Color]::FromArgb(255, 0, 0, 0)
+$pWhite  = [System.Drawing.Color]::FromArgb(255, 255, 255, 255)
+$pGrey   = [System.Drawing.Color]::FromArgb(255, 85, 85, 85)
+foreach ($v in @(@{ name = 'icon-64color-128.png'; aa = $false }, @{ name = 'icon-24bit-128.png'; aa = $true })) {
+    $b = New-Object System.Drawing.Bitmap 128, 128, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+    $g = [System.Drawing.Graphics]::FromImage($b)
+    $g.SmoothingMode = if ($v.aa) { 'AntiAlias' } else { 'None' }
+    $g.Clear($pOrange)
+    Draw-Mark $g 6 4 120 $pOrange $pBlack $pGrey $pWhite
+    if ($v.aa) {
+        $b.Save((Join-Path $art $v.name), [System.Drawing.Imaging.ImageFormat]::Png)
+    } else {
+        # 8-bit indexed PNG with Garmin's 64-colour palette (Garmin checks
+        # that the two device icons differ in pixel format).
+        Save-Indexed64 $b (Join-Path $art $v.name)
+    }
+    $g.Dispose(); $b.Dispose()
+}
+
 # ---------- cover 500x500 ----------
+# Watch on the left, PC on the right, an arc between them, title below.
 $c = New-Canvas 500 500; $b = $c[0]; $g = $c[1]
-Draw-Watch $g (Join-Path $shots '03-slides.png') 250 225 300
-Text $g 'Wrist Remote' 44 $bold $white 0 412 500 $center
+$top = [System.Drawing.Color]::FromArgb(255, 34, 34, 34)
+$grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush (New-Object System.Drawing.Point 0, 0), (New-Object System.Drawing.Point 0, 500), $top, $bg
+$g.FillRectangle($grad, 0, 0, 500, 500)
+# Monitor with a slide on it.
+$mx = 282; $my = 104; $mw = 186; $mh = 124
+$g.FillRectangle((New-Object System.Drawing.SolidBrush $white), $mx, $my, $mw, $mh)
+$g.FillRectangle((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 28, 28, 28))), $mx + 7, $my + 7, $mw - 14, $mh - 14)
+$g.FillRectangle((New-Object System.Drawing.SolidBrush $white), $mx + $mw/2 - 10, $my + $mh, 20, 20)
+$g.FillRectangle((New-Object System.Drawing.SolidBrush $white), $mx + $mw/2 - 36, $my + $mh + 18, 72, 8)
+# The slide: title bar, bullet lines, page number.
+$sl = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 236, 236, 236))
+$g.FillRectangle($sl, $mx + 20, $my + 18, $mw - 40, $mh - 36)
+$g.FillRectangle((New-Object System.Drawing.SolidBrush $accent), $mx + 32, $my + 30, 76, 10)
+$ln = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 150, 150, 150))
+foreach ($k in 0..2) { $g.FillRectangle($ln, $mx + 32, $my + 50 + $k * 13, 104 - $k * 20, 6) }
+Text $g '5 / 20' 14 $bold ([System.Drawing.Color]::FromArgb(255, 90, 90, 90)) ($mx + 20) ($my + $mh - 40) ($mw - 52) ([System.Drawing.StringAlignment]::Far)
+# Watch showing the Slides screen.
+Draw-Watch $g (Join-Path $shots '03-slides.png') 140 190 172
+# Signal arc from the watch's subscreen to the screen, with a dashed line.
+$pen = New-Object System.Drawing.Pen $accent, 5
+$pen.DashStyle = 'Dash'
+$pen.StartCap = 'Round'; $pen.EndCap = 'ArrowAnchor'
+$g.DrawBezier($pen, 214, 96, 236, 46, 290, 40, 318, 90)
+# Title and tagline.
+Text $g 'Wrist Remote' 50 $bold $white 0 330 500 $center
+Text $g 'Your watch is the remote' 24 $reg $grey 0 398 500 $center
+Text $g 'for your Windows PC' 24 $reg $grey 0 430 500 $center
 $b.Save((Join-Path $art 'cover-500.png')); $g.Dispose(); $b.Dispose()
 
 # ---------- hero 1440x720 ----------
