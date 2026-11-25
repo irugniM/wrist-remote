@@ -1,6 +1,6 @@
 # Wrist Remote
 
-Control a Windows 10/11 PC from a Garmin Instinct 3 (the PC app is Windows only): turn slides, control media and volume, run meeting shortcuts, lock or sleep the PC. Every command is confirmed by the PC, so the watch tells you whether it actually happened.
+Control a Windows 10/11 PC from a Garmin watch (the PC app is Windows only): turn slides, control media and volume, run meeting shortcuts, lock or sleep the PC. Every command is confirmed by the PC, so the watch tells you whether it actually happened.
 
 ```
 watch --Bluetooth--> phone (Garmin Connect) --HTTPS--> ntfy.sh --HTTPS--> Windows tray app --> keys / volume / lock / sleep
@@ -13,6 +13,8 @@ watch <--------- polls for the confirmation -------------+------- "id|ok|5/20|46
 Connect IQ watch apps can only be a Bluetooth LE central. The laptop this was built for has a Bluetooth chip that cannot act as a BLE peripheral (advertising never starts, even with Microsoft's own sample), so the watch cannot connect to it directly. A watch app can reach the internet through the phone, but only over HTTPS, so the two sides meet on [ntfy.sh](https://ntfy.sh), a free public pub/sub service.
 
 ## Watch app
+
+Runs on 119 Connect IQ watches with API level 3.2 or later: fenix 5 Plus to fenix 9, epix, Enduro, Forerunner, Venu, vivoactive, Instinct, MARQ, Descent, D2 and Approach. Screens adapt to round and rectangular displays of any size, the Instinct subscreen, and touch-only watches (swipe for back / next, tap for START, hold for flicks). 1-bit screens get a black-and-white launcher icon (`resources-mono`).
 
 | Menu | What it does |
 |---|---|
@@ -101,11 +103,13 @@ $key = "<developer_key.der>"
 & "$sdk\monkeyc.bat" -f monkey.jungle -d instinct3solar45mm -o bin\WristRemote.prg -y $key -r
 ```
 
-Copy `bin\WristRemote.prg` to the watch's `Garmin\Apps\` folder over USB.
+Use your watch's device id in place of `instinct3solar45mm` (see `manifest.xml`). Copy `bin\WristRemote.prg` to the watch's `Garmin\Apps\` folder over USB. For the store package of all watches: `monkeyc.bat -e -f monkey.jungle -o bin\WristRemote.iq -y $key -r`.
 
 PC app: run `pc-app\build.cmd`. It uses the C# compiler that ships with Windows and needs the Windows 10/11 SDK only for the media-session metadata (`Windows.winmd`) at build time.
 
 ## Tested / not tested
+
+- 1.3 layouts checked in the simulator on Venu 3 (touch, 454 px AMOLED), vivoactive 5 (touch only), Venu Sq 2 (rectangular), fenix 8 47 mm (buttons) and Instinct 2 (subscreen); all 119 watches build. Only the Instinct 3 has been tested on a real watch.
 
 - Tested in the Connect IQ simulator with the PC app in log-only mode: pairing, slides, media (with volume and now-playing display), meeting mic, leave confirmation, lock, and "PC no answer" with the PC app closed. PC app alone: unknown commands answered with `err|unknown`; real volume and media session read correctly.
 - On the real watch: pairing, slides, media and lock work (1.1). 1.1 sent Teams shortcuts by default, which were wrong in Zoom; 1.2 finds the meeting app instead.

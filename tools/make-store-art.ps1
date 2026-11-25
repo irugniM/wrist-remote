@@ -190,6 +190,16 @@ foreach ($v in @(@{ name = 'icon-64color-128.png'; aa = $false }, @{ name = 'ico
     $g.Dispose(); $b.Dispose()
 }
 
+# Launcher icon for colour watches (70x70, the largest any watch uses; the
+# compiler scales it down). 1-bit watches use resources-mono instead.
+$b = New-Object System.Drawing.Bitmap 70, 70
+$g = [System.Drawing.Graphics]::FromImage($b)
+$g.SmoothingMode = 'AntiAlias'
+$g.Clear([System.Drawing.Color]::Transparent)
+$g.FillEllipse((New-Object System.Drawing.SolidBrush $pOrange), 0, 0, 69, 69)
+Draw-Mark $g 6 5 58 $pOrange $pBlack $pGrey $pWhite
+$b.Save((Join-Path $root 'resources\drawables\launcher_icon.png'), [System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $b.Dispose()
+
 # ---------- cover 500x500 ----------
 # Watch on the left, PC on the right, an arc between them, title below.
 $c = New-Canvas 500 500; $b = $c[0]; $g = $c[1]

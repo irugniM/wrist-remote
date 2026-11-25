@@ -33,18 +33,18 @@ class SetupView extends WatchUi.View {
     function onUpdate(dc as Graphics.Dc) as Void {
         Ui.clear(dc);
         Ui.pill(dc, 0.17, Graphics.FONT_XTINY, "SETUP");
-        var hasSub = Ui.startLabel(dc, "link");
-        Ui.text(dc, 0.46, Graphics.FONT_XTINY, "Needs a free");
-        Ui.text(dc, 0.56, Graphics.FONT_XTINY, "Windows PC app");
-        Ui.text(dc, 0.68, Graphics.FONT_XTINY, "START sends the");
-        Ui.text(dc, 0.77, Graphics.FONT_XTINY, "link to your phone");
+        var hasSub = Ui.sub != null;
+        var o = hasSub ? 0.0 : -0.12;
+        if (hasSub) { Ui.startLabel(dc, "link", 0.0); }
+        Ui.text(dc, 0.46 + o, Graphics.FONT_XTINY, "Needs a free");
+        Ui.text(dc, 0.56 + o, Graphics.FONT_XTINY, "Windows PC app");
+        Ui.text(dc, 0.68 + o, Graphics.FONT_XTINY, Ui.startWord() + " sends the");
+        Ui.text(dc, 0.77 + o, Graphics.FONT_XTINY, "link to your phone");
         // Bottom of a round screen is narrow: short words only.
         if (sent.equals("sent")) {
             Ui.status(dc, 0.88, "sent", 1);
         } else if (sent.equals("no phone")) {
             Ui.status(dc, 0.88, "no phone", 2);
-        } else if (!hasSub) {
-            Ui.text(dc, 0.88, Graphics.FONT_XTINY, "START: link");
         }
     }
 }
@@ -66,5 +66,9 @@ class SetupDelegate extends WatchUi.BehaviorDelegate {
         return false;
     }
 
-    function onSelect() as Boolean { return true; }
+    // A tap is START on touch-only watches.
+    function onSelect() as Boolean {
+        if (Ui.touchOnly) { _v.sendLink(); }
+        return true;
+    }
 }

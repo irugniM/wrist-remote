@@ -20,20 +20,22 @@ class PairView extends WatchUi.View {
         var r = Relay.get();
         var t = r.topicGrouped();          // "wr-abcd efgh jkmn pqrs"
         Ui.pill(dc, 0.17, Graphics.FONT_XTINY, "PAIR");
-        var hasSub = Ui.startLabel(dc, "test");
-        Ui.text(dc, 0.45, Graphics.FONT_XTINY, "Enter this code");
-        Ui.text(dc, 0.54, Graphics.FONT_XTINY, "in the PC app:");
-        Ui.text(dc, 0.65, Graphics.FONT_SMALL, t.substring(0, 12) as String);
-        Ui.text(dc, 0.75, Graphics.FONT_SMALL, t.substring(13, t.length()) as String);
+        var hasSub = Ui.sub != null;
+        // With a subscreen the text starts below it; otherwise higher up.
+        var o = hasSub ? 0.0 : -0.12;
+        if (hasSub) { Ui.startLabel(dc, "test", 0.0); }
+        Ui.text(dc, 0.45 + o, Graphics.FONT_XTINY, "Enter this code");
+        Ui.text(dc, 0.54 + o, Graphics.FONT_XTINY, "in the PC app:");
+        Ui.text(dc, 0.65 + o, Graphics.FONT_SMALL, t.substring(0, 12) as String);
+        Ui.text(dc, 0.75 + o, Graphics.FONT_SMALL, t.substring(13, t.length()) as String);
         if (r.lastCommand.equals("ping") && !r.lastResult.equals("")) {
             var s = r.lastResult.equals("done") ? "connected" : r.statusText();
             Ui.status(dc, 0.87, s, r.statusKind());
         } else if (r.paired()) {
             Ui.status(dc, 0.87, "paired", 1);
-        } else if (!hasSub) {
-            // With a subscreen the START circle already says "test".
-            Ui.text(dc, 0.87, Graphics.FONT_XTINY, "START: test");
         }
+        // With a subscreen the START circle already says "test".
+        if (!hasSub) { Ui.startLabel(dc, "test", 0.76); }
     }
 }
 
@@ -51,5 +53,9 @@ class PairDelegate extends WatchUi.BehaviorDelegate {
         return false;
     }
 
-    function onSelect() as Boolean { return true; }
+    // A tap is START on touch-only watches.
+    function onSelect() as Boolean {
+        if (Ui.touchOnly) { Relay.get().send("ping"); }
+        return true;
+    }
 }

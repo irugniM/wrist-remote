@@ -1,1 +1,11 @@
 project.manifest = manifest.xml
+
+# 1-bit (black and white) screens keep the mono launcher icon.
+descentg1.resourcePath = $(descentg1.resourcePath);resources-mono
+instinct2.resourcePath = $(instinct2.resourcePath);resources-mono
+instinct2s.resourcePath = $(instinct2s.resourcePath);resources-mono
+instinct2x.resourcePath = $(instinct2x.resourcePath);resources-mono
+instinct3solar45mm.resourcePath = $(instinct3solar45mm.resourcePath);resources-mono
+instinctcrossover.resourcePath = $(instinctcrossover.resourcePath);resources-mono
+instincte40mm.resourcePath = $(instincte40mm.resourcePath);resources-mono
+instincte45mm.resourcePath = $(instincte45mm.resourcePath);resources-mono

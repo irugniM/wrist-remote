@@ -16,7 +16,7 @@ Control your Windows PC from your watch: slides, music, meetings, lock and sleep
 
 ## Description
 
-Wrist Remote turns your Instinct into a remote for your Windows PC.
+Wrist Remote turns your Garmin watch into a remote for your Windows PC. Works on fenix, epix, Enduro, Forerunner, Venu, vivoactive, Instinct, MARQ and more, with buttons or touch.
 
 - Slides: turn pages with UP and DOWN, black out the screen with START, or flick your wrist to go to the next slide. The watch shows the PowerPoint slide number.
 - Media: play / pause, next and previous track, volume and mute. See what is playing and the volume.
@@ -35,6 +35,11 @@ Windows may warn that the app is from an unknown publisher the first time; choos
 How it works: the watch sends commands through your phone (Garmin Connect must be running and online) to the free ntfy.sh relay, and the PC app picks them up. Your pairing code works like a password; only command words and a short status line pass through the relay. The PC app only acts on a fixed list of commands.
 
 Free and open source (MIT): https://github.com/irugniM/wrist-remote
+
+## What's new (1.3.0)
+
+- Now runs on 119 Garmin watches: fenix, epix, Enduro, Forerunner, Venu, vivoactive, Instinct, MARQ, Descent, D2 and Approach.
+- Screens adapt to round and rectangular displays, and touch-only watches use swipe, tap and hold.
 
 ## What's new (1.2.0)
 

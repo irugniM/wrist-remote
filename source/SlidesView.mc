@@ -25,26 +25,34 @@ class SlidesView extends WatchUi.View {
         Relay.get().send("next");
     }
 
-    // Layout, top to bottom: title, START hint in the subscreen, the slide
-    // number (or the last page turn) big, whether the PC did it, the page
-    // buttons, and the flick setting.
+    // Layout, top to bottom: title, the slide number (or the last page turn)
+    // big, whether the PC did it, back / next, what START does, and the
+    // flick setting. On the Instinct the START hint sits in the subscreen.
     function onUpdate(dc as Graphics.Dc) as Void {
         Ui.clear(dc);
         var r = Relay.get();
-        Ui.pill(dc, 0.17, Graphics.FONT_XTINY, "SLIDES");
-        var hasSub = Ui.startLabel(dc, "black");
-
+        var sub = Ui.sub != null;
         var big = r.slide.equals("") ? label(r.lastCommand) : r.slide;
-        Ui.text(dc, 0.48, Graphics.FONT_LARGE, big);
-        Ui.status(dc, 0.63, r.statusText(), r.statusKind());
-        Ui.upDown(dc, 0.75, "back", "next");
-        if (!hasSub) { Ui.text(dc, 0.94, Graphics.FONT_XTINY, "START black"); }
-
         var f;
-        if (!flick.enabled()) { f = "hold UP: flicks"; }
+        if (!flick.enabled()) { f = Ui.holdWord() + ": flicks"; }
         else if (!flick.hasAccel) { f = "no motion sensor"; }
         else { f = "flicks: " + flick.levelName(); }
-        Ui.text(dc, 0.86, Graphics.FONT_XTINY, f);
+
+        if (sub) {
+            Ui.pill(dc, 0.17, Graphics.FONT_XTINY, "SLIDES");
+            Ui.startLabel(dc, "black", 0.0);
+            Ui.text(dc, 0.48, Graphics.FONT_LARGE, big);
+            Ui.status(dc, 0.63, r.statusText(), r.statusKind());
+            Ui.upDown(dc, 0.75, "back", "next");
+            Ui.text(dc, 0.86, Graphics.FONT_XTINY, f);
+        } else {
+            Ui.pill(dc, 0.17, Graphics.FONT_XTINY, "SLIDES");
+            Ui.text(dc, 0.38, Graphics.FONT_LARGE, big);
+            Ui.status(dc, 0.53, r.statusText(), r.statusKind());
+            Ui.upDown(dc, 0.65, "back", "next");
+            Ui.startLabel(dc, "black", 0.75);
+            Ui.text(dc, 0.85, Graphics.FONT_XTINY, f);
+        }
     }
 
     static function label(cmd as String) as String {
@@ -81,11 +89,20 @@ class SlidesDelegate extends WatchUi.BehaviorDelegate {
         return false;
     }
 
-    function onSelect() as Boolean { return true; }
+    // A tap is START on touch-only watches; elsewhere ignore stray taps.
+    function onSelect() as Boolean {
+        if (Ui.touchOnly) { Relay.get().send("black"); }
+        return true;
+    }
 
-    function onMenu() as Boolean {           // hold UP
+    function onMenu() as Boolean {           // hold UP (or the menu gesture)
         _v.flick.cycle();
         WatchUi.requestUpdate();
         return true;
+    }
+
+    function onHold(evt as WatchUi.ClickEvent) as Boolean {   // long press on touch-only watches
+        if (!Ui.touchOnly) { return false; }
+        return onMenu();
     }
 }
