@@ -10,11 +10,30 @@ class RemoteApp extends Application.AppBase {
     }
 
     function getInitialView() {
+        storePose();
         Relay.get().topic();     // make the pairing code on first launch
         var m = Menus.buildMain();
         return [m, new MainMenuDelegate(m)];
     }
 }
+
+// Debug builds only: start with example PC status so the store
+// screenshots show what the screens look like in use.
+(:debug)
+function storePose() as Void {
+    var r = Relay.get();
+    r.lastCommand = "next";
+    r.lastResult = "done";
+    r.lastMs = 1200;
+    r.slide = "5/20";
+    r.volume = "46";
+    r.playing = "Nova Lane - Night Drive";
+    Application.Storage.setValue("paired", false);                  // show the first-run menu
+    Application.Storage.setValue("topic", "wr-abcdefghjkmnpqrs");   // example code, matches the PC screenshot
+}
+
+(:release)
+function storePose() as Void {}
 
 module Menus {
 
@@ -30,12 +49,21 @@ module Menus {
     function buildMain() as WatchUi.Menu2 {
         openedAt = System.getTimer();
         var m = new WatchUi.Menu2({:title => "Wrist Remote"});
-        m.addItem(new WatchUi.MenuItem("Slides", "UP/DOWN, flick", :slides, null));
-        m.addItem(new WatchUi.MenuItem("Media", "play, tracks, volume", :media, null));
+        // Until a command has worked, put the two setup steps first.
+        var paired = Relay.get().paired();
+        if (!paired) {
+            m.addItem(new WatchUi.MenuItem("Get PC app", "step 1", :setup, null));
+            m.addItem(new WatchUi.MenuItem("Pair with PC", "step 2", :pair, null));
+        }
+        m.addItem(new WatchUi.MenuItem("Slides", "turn pages", :slides, null));
+        m.addItem(new WatchUi.MenuItem("Media", "music and volume", :media, null));
         m.addItem(new WatchUi.MenuItem("Meeting", "mic, camera, hand", :meeting, null));
-        m.addItem(new WatchUi.MenuItem("Lock PC", "Win+L", "lock", null));
+        m.addItem(new WatchUi.MenuItem("Lock PC", "lock the screen", "lock", null));
         m.addItem(new WatchUi.MenuItem("Sleep PC", "asks first", :sleep, null));
-        m.addItem(new WatchUi.MenuItem("Pair", "code for the PC", :pair, null));
+        if (paired) {
+            m.addItem(new WatchUi.MenuItem("Pair with PC", "code and test", :pair, null));
+            m.addItem(new WatchUi.MenuItem("Get PC app", "link to phone", :setup, null));
+        }
         return m;
     }
 
@@ -44,19 +72,19 @@ module Menus {
         m.addItem(new WatchUi.MenuItem("Play / pause", nowPlaying(), "playpause", null));
         m.addItem(new WatchUi.MenuItem("Next track", null, "nexttrack", null));
         m.addItem(new WatchUi.MenuItem("Previous track", null, "prevtrack", null));
-        m.addItem(new WatchUi.MenuItem("Volume up", volume(), "volup", null));
-        m.addItem(new WatchUi.MenuItem("Volume down", volume(), "voldown", null));
+        m.addItem(new WatchUi.MenuItem("Volume +", volume(), "volup", null));
+        m.addItem(new WatchUi.MenuItem("Volume -", volume(), "voldown", null));
         m.addItem(new WatchUi.MenuItem("Mute", null, "mute", null));
         WatchUi.pushView(m, new CommandMenuDelegate(m), WatchUi.SLIDE_LEFT);
     }
 
-    // Shortcuts for these come from the meeting app chosen on the PC
-    // (Teams, Zoom, Google Meet, or custom). The meeting window must be in front.
+    // The PC app finds the meeting window (Teams, Zoom or Google Meet) and
+    // sends that app's shortcut.
     function showMeeting() as Void {
         var m = new WatchUi.Menu2({:title => "Meeting"});
-        m.addItem(new WatchUi.MenuItem("Mic on/off", null, "mic", null));
-        m.addItem(new WatchUi.MenuItem("Camera on/off", null, "camera", null));
-        m.addItem(new WatchUi.MenuItem("Raise hand", null, "hand", null));
+        m.addItem(new WatchUi.MenuItem("Mic", "mute / unmute", "mic", null));
+        m.addItem(new WatchUi.MenuItem("Camera", "on / off", "camera", null));
+        m.addItem(new WatchUi.MenuItem("Raise hand", "raise / lower", "hand", null));
         m.addItem(new WatchUi.MenuItem("Leave meeting", "asks first", :leave, null));
         WatchUi.pushView(m, new CommandMenuDelegate(m), WatchUi.SLIDE_LEFT);
     }
@@ -101,6 +129,9 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
             Menus.showMeeting();
         } else if (id == :sleep) {
             Menus.confirm("Sleep PC?", "Sleep now", "PC goes to sleep", "sleep");
+        } else if (id == :setup) {
+            var v = new SetupView();
+            WatchUi.pushView(v, new SetupDelegate(v), WatchUi.SLIDE_LEFT);
         } else if (id == :pair) {
             WatchUi.pushView(new PairView(), new PairDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id instanceof String) {           // "lock": send and show the result here
@@ -180,6 +211,9 @@ class CommandMenuDelegate extends WatchUi.Menu2InputDelegate {
         if (!(id instanceof String)) { return; }
         if (id.equals("playpause")) { item.setSubLabel(Menus.nowPlaying()); }
         else if (id.equals("volup") || id.equals("voldown")) { item.setSubLabel(Menus.volume()); }
+        else if (id.equals("mic")) { item.setSubLabel("mute / unmute"); }
+        else if (id.equals("camera")) { item.setSubLabel("on / off"); }
+        else if (id.equals("hand")) { item.setSubLabel("raise / lower"); }
         else { item.setSubLabel(null); }
     }
 

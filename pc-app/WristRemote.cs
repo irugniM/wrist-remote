@@ -557,7 +557,7 @@ namespace WristRemote
 
             var label = new Label
             {
-                Text = "On the watch open Wrist Remote > Pair and type the code shown there. Spaces don't matter.\nExample: wr-abcd efgh jkmn pqrs",
+                Text = "On the watch open Wrist Remote > Pair with PC and type the code shown there. Spaces don't matter.\nExample: wr-abcd efgh jkmn pqrs",
                 Location = new Point(14, 12),
                 Size = new Size(392, 66)
             };
